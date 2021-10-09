@@ -62,11 +62,10 @@ plt.show()
 import matplotlib.pyplot as plt
 import numpy as np
 ypoints=np.array([2,4,6,14,10,12])
-plt.plot(ypoints,'D:r',ms=10,mec='g',mfc='g')
+plt.plot(ypoints,'D--r',ms=10,mec='g',mfc='g')
 plt.show()
 
 
-# In[ ]:
 
 
 
