@@ -30,7 +30,8 @@ for row in numbers:
     for column in row:
         print(column, end=' ')
     print()
-
+for i in numbers.flat:
+    print(i, end=' ')
 
 # In[1]:
 
