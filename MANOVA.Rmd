@@ -1,0 +1,248 @@
+---
+title: "ANLY 511 Final Project - MANOVA"
+author: "LINLIN WANG"
+date: '2022-12-02'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+## MANOVA
+
+MANOVA stands for multivariate analysis of variance. It's basically used to evaluate mean differences on two or more dependent variables simultaneously. That's the main difference compared with ANOVA. 
+
+We try to answer below research questions by performing MANOVA. And CO2, CO, and THC are three dependent variables. 
+
+## Research Questions
+
+1. We want to know if there is statistically significant difference in CO2, CO, and THC between the different types of vehicle.  
+
+2. We want to know if there is statistically significant difference in CO2, CO, and THC between vehicle manufacturers. 
+
+3. We want to know if there is statistically significant difference in CO2, CO, and THC between the different vehicle transmission types.  
+
+## Assumptions of MANOVA
+
+There are additional assumptions of MANOVA:
+
+1. Homogeneity of the variances across the range of predictors:
+
+Our data should have equal variance-covariance matrics for each combination formed by each group      in the independent variable. 
+
+2. Multicollinearity:
+
+Our data should be no multicollinearity among dependent variables. 
+  
+**Loading packages**
+```{r}
+library(tidyverse)
+library(ggpubr)
+library(rstatix)
+library(car)
+library(broom)
+library(gplots)
+library(mvnormalTest)
+library(heplots)
+```
+
+
+## Enter Data
+
+```{r}
+# Read cleaned nonelectric data
+nonelectric<-read.csv("/Users/linlinw/Desktop/ANLY511-Final-Project-main/data/cardata_nonelectric_clean.csv")
+# Remove first column X
+nonelectric<-nonelectric[,-1]
+# View first couple rows of data
+head(nonelectric)
+```
+
+**Research Question 1:** Is there any important difference in CO2, CO, and THC between the different types of vehicle?
+
+**Exploratory Data Analysis:**
+
+```{r}
+# Create color palettes
+Blues <- colorRampPalette(c("#0A146B", "#A9A3DA")) 
+Purples <- colorRampPalette(c("#3E1370", "#BDA3DA")) 
+GrBuPuPi <- c("#095826", "#0E7032", "#10913F", "#55A472", "#8CBF9E", "#8CBFB8", 
+              "#63B7AC", "#2D9A8B", "#137568", "#094E45", "#0B3C5C", "#17547C", 
+              "#2671A4", "#3C8CC1", "#72B1DB", "#96C3E1", "#B0CDE1", "#B0B3E1", 
+              "#858ACD", "#4F55AB", "#1923B3", "#0E1468", "#3C1075", "#5821A1", 
+              "#6B27C4", "#9455E5", "#A278D8", "#A990CA", "#ADA0BF", "#C1A5CB", 
+              "#B887CA", "#A35CBD", "#762594")
+```
+
+
+```{r}
+# Visaulize dataset
+ggboxplot(
+  nonelectric, x = "Vehicle.Type", y = c("CO2..g.mi.", "CO..g.mi.", "THC..g.mi."), 
+  merge = TRUE, palette = c("#095826",  "#2671A4","#A35CBD" ), 
+  title = "Three Different Emissions for Vehicle.Type",
+  ylab = "Value of Emission (g/mi)"
+  )
+```
+
+From the above boxplot, we can see there is significant difference in CO2 and CO between vehicle type, and significant difference in CO2 and THC between vehicle type. However, the difference in CO and THC between vehicle type is not obvious.  
+
+**Test assumption**
+
+1. Check for Homogeneity 
+
+```{r}
+boxM(Y = nonelectric[, c("CO2..g.mi.", "CO..g.mi.", "THC..g.mi.")], group = nonelectric$Vehicle.Type)
+```
+Since the p-value is significant for Box's M test, we reject the null hypothesis at 5% significance level and conclude that variance-covariance matrices are not equal for each combination formed by each group in the independent variable. Thus, this assumption is satisfied. 
+
+2. Check Multicollinearity 
+```{r}
+cor_co2_co<-cor.test(x = nonelectric$CO2..g.mi., y = nonelectric$CO..g.mi., method = "pearson")$estimate
+cor_co2_thc<-cor.test(x = nonelectric$CO2..g.mi., y = nonelectric$THC..g.mi., method = "pearson")$estimate
+cor_thc_co<-cor.test(x = nonelectric$THC..g.mi., y = nonelectric$CO..g.mi., method = "pearson")$estimate
+result<-cbind(cor_co2_co, cor_co2_thc, cor_thc_co)
+result
+```
+
+As the correlation coefficient between each dependent variable is smaller than 0.9, there is no multicollinearity. So this assumption is hold. 
+
+**Perform MANOVA**
+
+*Hypotheses*
+
+$H_0:$ There is no significant difference in CO2, CO, and THC between the different types of vehicle.  
+
+$H_a:$ There is significant difference in CO2, CO, and THC between the different types of vehicle. 
+```{r}
+# Fit the MANOVA model
+fit1 = manova(cbind(CO2..g.mi., CO..g.mi., THC..g.mi.) ~ Vehicle.Type, data = nonelectric)
+summary(fit1, intercept = TRUE)
+```
+Since the p-value for Vehicle.Type variable is smaller than the significance level 0.05, we can reject the null hypotheses at 5% significance level, and conclude that there is statistically significant difference in CO2, CO, and THC between the different types of vehicle. 
+
+However, we are unclear about which emissions are affected by vehicle type. We perform univariate ANOVAs to figure it out.  
+```{r}
+summary.aov(fit1)
+```
+
+We can see from the output that the p-value for all univariate ANOVAs are smaller than significance level 0.05, which indicates that vehicle type has a statistically significant effect on CO2, CO, and THC emissions. 
+
+*Visualizing Group Means*
+
+Visualizing the Group means for each level of our independent variable vehicle type is helpful to get a better understanding of our results. 
+```{r}
+#visualize mean CO2 by vehicle type
+plotmeans(nonelectric$CO2..g.mi. ~ nonelectric$Vehicle.Type)
+#visualize mean CO by vehicle type
+plotmeans(nonelectric$CO..g.mi. ~ nonelectric$Vehicle.Type)
+#visualize mean THC by vehicle type
+plotmeans(nonelectric$THC..g.mi. ~ nonelectric$Vehicle.Type)
+```
+From the above three plots, we can see that the mean CO2, CO, and THC varies quite a bit by vehicle types. This matches the results from our MANOVA, which indicates that there is statistically significant difference in three emissions based on vehicle types. 
+
+
+
+**Research Question 2:** Is there any important difference in CO2, CO, and THC between the different vehicle manufacturers?
+
+```{r}
+# Visaulize dataset
+p2<-ggboxplot(
+  nonelectric, x = "Vehicle.Manufacturer.Name", y = c("CO2..g.mi.", "CO..g.mi.", "THC..g.mi."), 
+  merge = TRUE, palette = c("#095826",  "#2671A4","#A35CBD" ), 
+  title = "Three Different Emissions for Vehicle.Manufacturer",
+  ylab = "Value of Emission (g/mi)",
+  add = "jitter"
+)
+p2 + rotate_x_text(45)
+```
+From this boxplot, we can get same conclusion with first plot. There is no important difference in CO and THC between vehicle manufacturer. 
+
+*Hypotheses2*
+
+$H_0:$ There is no significant difference in CO2, CO, and THC between vehicle manufacturer.  
+
+$H_a:$ There is significant difference in CO2, CO, and THC between vehicle manufacturer. 
+```{r}
+# Fit the MANOVA model
+fit2 = manova(cbind(CO2..g.mi., CO..g.mi., THC..g.mi.) ~ Vehicle.Manufacturer.Name, data = nonelectric)
+summary(fit2, intercept = TRUE)
+```
+
+Since the p-value for vehicle manufacturer variable is smaller than the significance level 0.05, we can reject the null hypotheses at 5% significance level, and conclude that there is statistically significant difference in CO2, CO, and THC between the different types of vehicle. 
+
+Then we perform univariate ANOVAs to figure it out which emissions are affected by vehicle manufacturer
+```{r}
+summary.aov(fit2)
+```
+We can see from the output that the p-value for all univariate ANOVAs are smaller than significance level 0.05, which indicates that Vehicle Manufacturer has a statistically significant effect on CO2, CO, and THC emissions. 
+
+*Visualizing Group Means*
+
+Visualizing the Group means for each level of our independent variable Vehicle.Manufacturer.Name is helpful to get a better understanding of our results. 
+```{r}
+#visualize mean CO2 by vehicle type
+plotmeans(nonelectric$CO2..g.mi. ~ nonelectric$Vehicle.Manufacturer.Name) +rotate_x_text(45)
+#visualize mean CO by vehicle type
+plotmeans(nonelectric$CO..g.mi. ~ nonelectric$Vehicle.Manufacturer.Name)
+#visualize mean THC by vehicle type
+plotmeans(nonelectric$THC..g.mi. ~ nonelectric$Vehicle.Manufacturer.Name)
+```
+From the above three plots, we can see that the mean CO2, CO, and THC do not vary a lot by vehicle manufacturer. This doesn't matches the results from our MANOVA.
+
+**Research Question 3:** Is there any important difference in CO2, CO, and THC between the different vehicle transmission types?
+
+```{r}
+# Visaulize dataset
+p3<-ggboxplot(
+  nonelectric, x = "Test.Fuel.Type.Description", y = c("CO2..g.mi.", "CO..g.mi.", "THC..g.mi."), 
+  merge = TRUE, palette = c("#095826",  "#2671A4","#A35CBD" ), 
+  title = "Three Different Emissions for Fuel.Type",
+  ylab = "Value of Emission (g/mi)",
+  xlab = "Fuel.Type"
+)
+p3 + rotate_x_text(45)
+```
+
+*Hypotheses 3*
+
+$H_0:$ There is no significant difference in CO2, CO, and THC between the different types of fuel  
+
+$H_a:$ There is significant difference in CO2, CO, and THC between the different types of fuel 
+```{r}
+# Fit the MANOVA model
+fit3 = manova(cbind(CO2..g.mi., CO..g.mi., THC..g.mi.) ~ Test.Fuel.Type.Description, data = nonelectric)
+summary(fit3, intercept = TRUE)
+```
+Since the p-value for Fuel.Type variable is smaller than the significance level 0.05, we can reject the null hypotheses at 5% significance level, and conclude that there is statistically significant difference in CO2, CO, and THC between the different types of fuel. 
+
+However, we are unclear about which emissions are affected by fuel type. We perform univariate ANOVAs to figure it out.  
+```{r}
+summary.aov(fit3)
+```
+
+We can see from the output that the p-value for all univariate ANOVAs are smaller than significance level 0.05, which indicates that fuel type has a statistically significant effect on CO2, CO, and THC emissions. 
+
+*Visualizing Group Means*
+
+Visualizing the Group means for each level of our independent variable vehicle type is helpful to get a better understanding of our results. 
+```{r}
+#visualize mean CO2 by vehicle type
+plotmeans(nonelectric$CO2..g.mi. ~ nonelectric$Test.Fuel.Type.Description)
+#visualize mean CO by vehicle type
+plotmeans(nonelectric$CO..g.mi. ~ nonelectric$Test.Fuel.Type.Description)
+#visualize mean THC by vehicle type
+plotmeans(nonelectric$THC..g.mi. ~ nonelectric$Test.Fuel.Type.Description)
+```
+From the above three plots, we can see that the mean CO2, CO, and THC varies quite a bit by fuel types. This matches the results from our MANOVA, which indicates that there is statistically significant difference in three emissions based on fuel types. 
+
+
+
+
+
+
+
+
+
+
+
+
